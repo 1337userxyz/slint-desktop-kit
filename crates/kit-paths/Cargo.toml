@@ -1,0 +1,15 @@
+[package]
+name = "kit-paths"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Plattformübergreifende Pfadnormalisierung und Mappings (Windows <-> Linux/macOS)"
+
+[dependencies]
+serde = { workspace = true, optional = true }
+
+[features]
+default = ["serde"]
+serde = ["dep:serde"]
