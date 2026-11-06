@@ -131,14 +131,22 @@ pub fn auto_map_from(os_from: Os, os_to: Os, path: &str) -> Option<PathBuf> {
                     }
                 }
 
-                // Fallback: ersten plausiblen Kandidaten zurückgeben
-                return Some(PathBuf::from(&candidates[0]));
+                return None;
             }
 
             let flipped = trimmed.replace('\\', "/");
-            Some(PathBuf::from(flipped))
+            if Path::new(&flipped).exists() {
+                Some(PathBuf::from(flipped))
+            } else {
+                None
+            }
         }
         (Os::Linux, Os::Windows) | (Os::MacOs, Os::Windows) => {
+            let flipped = trimmed.replace('/', "\\");
+            if Path::new(&flipped).exists() {
+                return Some(PathBuf::from(flipped));
+            }
+
             let rest_after_mnt = trimmed.strip_prefix("/mnt/").or_else(|| trimmed.strip_prefix("/media/"));
             let (drive_char, rest_path) = if let Some(after_mnt) = rest_after_mnt {
                 let mut parts = after_mnt.splitn(2, '/');
@@ -163,7 +171,11 @@ pub fn auto_map_from(os_from: Os, os_to: Os, path: &str) -> Option<PathBuf> {
             let drive_upper = drive_char.to_ascii_uppercase();
             let win_rest = rest_path.replace('/', "\\");
             let win_path = format!("{drive_upper}:\\{win_rest}");
-            Some(PathBuf::from(win_path))
+            if Path::new(&win_path).exists() {
+                Some(PathBuf::from(win_path))
+            } else {
+                None
+            }
         }
         _ => {
             let flipped = if os_to == Os::Windows {
@@ -171,7 +183,11 @@ pub fn auto_map_from(os_from: Os, os_to: Os, path: &str) -> Option<PathBuf> {
             } else {
                 trimmed.replace('\\', "/")
             };
-            Some(PathBuf::from(flipped))
+            if Path::new(&flipped).exists() {
+                Some(PathBuf::from(flipped))
+            } else {
+                None
+            }
         }
     }
 }
@@ -201,12 +217,9 @@ mod tests {
 
     #[test]
     fn test_auto_map() {
-        let win_path = "C:\\Projects\\repo";
-        let mapped = auto_map_from(Os::Windows, Os::Linux, win_path).unwrap();
-        assert_eq!(mapped, PathBuf::from("/c/Projects/repo"));
-
-        let linux_path = "/mnt/r/repos/my_repo";
-        let mapped_win = auto_map_from(Os::Linux, Os::Windows, linux_path).unwrap();
-        assert_eq!(mapped_win, PathBuf::from("R:\\repos\\my_repo"));
+        // Bei Pfaden die nicht existieren, liefert auto_map_from None
+        let win_path = "C:\\Projects\\repo_non_existent";
+        let mapped = auto_map_from(Os::Windows, Os::Linux, win_path);
+        assert_eq!(mapped, None);
     }
 }
