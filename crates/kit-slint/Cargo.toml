@@ -1,0 +1,11 @@
+[package]
+name = "kit-slint"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Produktivitäts-Helfer für Slint: ModelRc Konverter, Iterator-Extensions, Thread-Tasks und Timer"
+
+[dependencies]
+slint = { workspace = true }
