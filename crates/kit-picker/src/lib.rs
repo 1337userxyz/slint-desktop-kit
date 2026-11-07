@@ -5,6 +5,77 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
+/// Stellt sicher, dass auf Linux/NixOS die benötigten systemweiten Bibliotheken
+/// (insbesondere `libdbus-1.so.3` für Portaldialoge) geladen sind.
+/// Wird automatisch beim Öffnen von Dialogen ausgeführt, kann aber auch
+/// explizit in `main()` aufgerufen werden.
+pub fn ensure_dialog_ready() {
+    #[cfg(target_os = "linux")]
+    linux_dbus::ensure_ready();
+}
+
+/// Alias für Rückwärtskompatibilität.
+pub use ensure_dialog_ready as ensure_linux_dialog_ready;
+
+#[cfg(target_os = "linux")]
+mod linux_dbus {
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
+
+    pub fn ensure_ready() {
+        INIT.call_once(preload);
+    }
+
+    fn preload() {
+        extern "C" {
+            fn dlopen(
+                filename: *const std::os::raw::c_char,
+                flag: std::os::raw::c_int,
+            ) -> *mut std::ffi::c_void;
+        }
+        const RTLD_NOW: std::os::raw::c_int = 2;
+        const RTLD_GLOBAL: std::os::raw::c_int = 256;
+
+        unsafe {
+            if let Ok(name) = std::ffi::CString::new("libdbus-1.so.3") {
+                let handle = dlopen(name.as_ptr(), RTLD_NOW | RTLD_GLOBAL);
+                if !handle.is_null() {
+                    return;
+                }
+            }
+            if let Ok(fallback) = std::ffi::CString::new("libdbus-1.so") {
+                let handle = dlopen(fallback.as_ptr(), RTLD_NOW | RTLD_GLOBAL);
+                if !handle.is_null() {
+                    return;
+                }
+            }
+        }
+
+        // Auf NixOS liegen Bibliotheken isoliert im /nix/store
+        if let Ok(entries) = std::fs::read_dir("/nix/store") {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.contains("dbus") {
+                        let so = path.join("lib").join("libdbus-1.so.3");
+                        if so.exists() {
+                            if let Ok(c_so) = std::ffi::CString::new(so.to_string_lossy().as_bytes()) {
+                                unsafe {
+                                    let handle = dlopen(c_so.as_ptr(), RTLD_NOW | RTLD_GLOBAL);
+                                    if !handle.is_null() {
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Globales Gedächtnis für kürzlich verwendete Verzeichnisse je Kontext-Schlüssel (z. B. "clone_dest", "csv_import").
 static RECENT_DIRS: OnceLock<Arc<Mutex<HashMap<String, PathBuf>>>> = OnceLock::new();
 
@@ -146,6 +217,7 @@ impl PickRequest {
 
     /// Baut den vorkonfigurierten `rfd::FileDialog`.
     fn build_rfd(&self) -> rfd::FileDialog {
+        ensure_dialog_ready();
         let mut dialog = rfd::FileDialog::new();
 
         if let Some(ref title) = self.title {
