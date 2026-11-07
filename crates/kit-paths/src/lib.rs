@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+pub use kit_appdirs as appdirs;
+
 /// Betriebssystem-Typ zur expliziten Steuerung von Konvertierungen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Os {

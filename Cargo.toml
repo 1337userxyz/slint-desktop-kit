@@ -6,6 +6,7 @@ members = [
     "crates/kit-slint",
     "crates/kit-logging",
     "crates/kit-launcher",
+    "crates/kit-appdirs",
 ]
 
 [workspace.package]
