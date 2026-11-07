@@ -54,6 +54,7 @@ pub struct PickRequest {
     pub context_key: Option<String>,
     pub filters: Vec<FileFilter>,
     pub default_file_name: Option<String>,
+    pub default_extension: Option<String>,
 }
 
 impl PickRequest {
@@ -65,6 +66,7 @@ impl PickRequest {
             context_key: None,
             filters: Vec::new(),
             default_file_name: None,
+            default_extension: None,
         }
     }
 
@@ -119,6 +121,12 @@ impl PickRequest {
         self
     }
 
+    /// Automatische Dateiendung (z. B. "ods" oder "csv"), falls der Nutzer beim Speichern keine Endung eingibt.
+    pub fn default_extension(mut self, ext: impl Into<String>) -> Self {
+        self.default_extension = Some(ext.into());
+        self
+    }
+
     /// Ermittelt das optimale Startverzeichnis (erst `start_hint`, dann `context_key`, sonst Fallback).
     fn resolve_start_dir(&self) -> Option<PathBuf> {
         if let Some(ref hint) = self.start_hint {
@@ -162,12 +170,18 @@ impl PickRequest {
 
     /// Führt die Auswahl synchron auf dem aufrufenden Thread aus.
     pub fn pick_sync(&self) -> Option<PathBuf> {
-        let res = match self.kind {
+        let mut res = match self.kind {
             PickKind::SingleFile => self.build_rfd().pick_file(),
             PickKind::MultipleFiles => self.build_rfd().pick_files().and_then(|mut v| v.pop()),
             PickKind::Folder => self.build_rfd().pick_folder(),
             PickKind::SaveFile => self.build_rfd().save_file(),
         };
+
+        if let (Some(ref mut path), Some(ref ext)) = (&mut res, &self.default_extension) {
+            if path.extension().is_none() {
+                path.set_extension(ext);
+            }
+        }
 
         if let (Some(ref path), Some(ref key)) = (&res, &self.context_key) {
             remember_dir(key, path);
@@ -278,10 +292,12 @@ mod tests {
         let req = PickRequest::file()
             .title("Test File")
             .context("test_ctx")
+            .default_extension("ods")
             .add_filter("CSV", &["csv"]);
         assert_eq!(req.kind, PickKind::SingleFile);
         assert_eq!(req.title, Some("Test File".to_string()));
         assert_eq!(req.context_key, Some("test_ctx".to_string()));
+        assert_eq!(req.default_extension, Some("ods".to_string()));
         assert_eq!(req.filters.len(), 1);
     }
 }
