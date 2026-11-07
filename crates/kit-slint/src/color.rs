@@ -1,0 +1,214 @@
+//! Farb-Helfer und Hex-Parser für `slint::Color`.
+//!
+//! Da Slint zur Laufzeit standardmäßig keine dynamische Konvertierung von
+//! Hex-Farben (z. B. `#RRGGBB` oder `#AARRGGBB`) anbietet, stellt dieses
+//! Modul Parsing, Alpha-Modifikation, Formatierung und einen `ColorCache` bereit.
+
+use std::collections::HashMap;
+use slint::Color;
+
+/// Gibt eine vollständig transparente Farbe (Alpha = 0) zurück.
+#[inline]
+pub fn transparent() -> Color {
+    Color::from_argb_u8(0, 0, 0, 0)
+}
+
+/// Ändert die Transparenz (Alpha: 0..=255) einer bestehenden `slint::Color`.
+#[inline]
+pub fn with_alpha(color: Color, alpha: u8) -> Color {
+    Color::from_argb_u8(alpha, color.red(), color.green(), color.blue())
+}
+
+/// Formatiert eine `slint::Color` als 6-stelligen Hex-String `#RRGGBB`.
+pub fn to_hex(color: &Color) -> String {
+    format!("#{:02x}{:02x}{:02x}", color.red(), color.green(), color.blue())
+}
+
+/// Formatiert eine `slint::Color` als 8-stelligen Hex-String `#AARRGGBB`.
+pub fn to_hex_argb(color: &Color) -> String {
+    format!(
+        "#{:02x}{:02x}{:02x}{:02x}",
+        color.alpha(),
+        color.red(),
+        color.green(),
+        color.blue()
+    )
+}
+
+/// Parst einen Hex-Farbstring (`#RGB`, `#RRGGBB` oder `#AARRGGBB`) mit vollem Alpha (255).
+pub fn parse_hex(hex: &str) -> Option<Color> {
+    parse_hex_with_alpha(hex, 255)
+}
+
+/// Parst einen Hex-Farbstring mit vorgegebenem Alpha (0..=255).
+///
+/// Unterstützte Formate (mit oder ohne `#`):
+/// - 3 Zeichen (`#RGB`): RGB verdoppelt (`#f00` -> `#ff0000`), Alpha wird übernommen.
+/// - 6 Zeichen (`#RRGGBB`): Standard-RGB, Alpha wird übernommen.
+/// - 8 Zeichen (`#AARRGGBB`): Volles ARGB; das im Hex angegebene Alpha wird verwendet,
+///   sofern `default_alpha == 255`, andernfalls überschreibt `default_alpha`.
+pub fn parse_hex_with_alpha(hex: &str, default_alpha: u8) -> Option<Color> {
+    let clean = hex.trim().strip_prefix('#').unwrap_or(hex.trim());
+    match clean.len() {
+        3 => {
+            let r = u8::from_str_radix(&clean[0..1], 16).ok()? * 17;
+            let g = u8::from_str_radix(&clean[1..2], 16).ok()? * 17;
+            let b = u8::from_str_radix(&clean[2..3], 16).ok()? * 17;
+            Some(Color::from_argb_u8(default_alpha, r, g, b))
+        }
+        6 => {
+            let r = u8::from_str_radix(&clean[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&clean[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&clean[4..6], 16).ok()?;
+            Some(Color::from_argb_u8(default_alpha, r, g, b))
+        }
+        8 => {
+            let a = u8::from_str_radix(&clean[0..2], 16).ok()?;
+            let r = u8::from_str_radix(&clean[2..4], 16).ok()?;
+            let g = u8::from_str_radix(&clean[4..6], 16).ok()?;
+            let b = u8::from_str_radix(&clean[6..8], 16).ok()?;
+            let final_a = if default_alpha != 255 {
+                default_alpha
+            } else {
+                a
+            };
+            Some(Color::from_argb_u8(final_a, r, g, b))
+        }
+        _ => None,
+    }
+}
+
+/// In-Memory Cache für Farben und Brushes.
+///
+/// Cacht registrierte Farbnamen (z. B. `DirtyCellBrush`) sowie dynamisch geparste
+/// Hex-Werte und deren Alpha-Varianten (`{name}_{alpha}`).
+#[derive(Debug, Clone, Default)]
+pub struct ColorCache {
+    cache: HashMap<String, Color>,
+}
+
+impl ColorCache {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Registriert einen benannten Farbwert (z. B. "Highlight", "Error").
+    pub fn register(&mut self, key: impl Into<String>, color: Color) {
+        let k = key.into().to_lowercase();
+        self.cache.insert(k, color);
+    }
+
+    /// Parst und registriert einen Hex-Farbwert unter einem Namen.
+    pub fn register_hex(&mut self, key: impl Into<String>, hex: &str, alpha: u8) -> Option<Color> {
+        let c = parse_hex_with_alpha(hex, alpha)?;
+        self.register(key, c);
+        Some(c)
+    }
+
+    /// Ruft eine registrierte Farbe ab.
+    pub fn get(&self, key: &str) -> Option<Color> {
+        self.cache.get(&key.to_lowercase()).copied()
+    }
+
+    /// Holt eine Farbe aus dem Cache oder parst sie als Hex-Wert.
+    /// Erkennt automatisch "transparent", "none", "keine" und Leerstrings.
+    pub fn get_or_parse(&mut self, key_or_hex: &str, alpha: u8) -> Color {
+        let trimmed = key_or_hex.trim();
+        if trimmed.is_empty()
+            || trimmed.eq_ignore_ascii_case("keine")
+            || trimmed.eq_ignore_ascii_case("none")
+            || trimmed.eq_ignore_ascii_case("transparent")
+        {
+            return transparent();
+        }
+
+        let lower = trimmed.to_lowercase();
+        let cache_key = if alpha == 255 {
+            lower.clone()
+        } else {
+            format!("{}_{}", lower, alpha)
+        };
+
+        if let Some(&c) = self.cache.get(&cache_key) {
+            return c;
+        }
+
+        // Falls wir den Basis-Farbwert (alpha 255) kennen, modifizieren wir ihn
+        if alpha != 255 {
+            if let Some(&base) = self.cache.get(&lower) {
+                if base.alpha() > 0 {
+                    let derived = with_alpha(base, alpha);
+                    self.cache.insert(cache_key, derived);
+                    return derived;
+                }
+            }
+        }
+
+        let parsed = parse_hex_with_alpha(trimmed, alpha).unwrap_or_else(transparent);
+        self.cache.insert(cache_key, parsed);
+        parsed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_hex_rgb() {
+        let c = parse_hex("#ff0000").unwrap();
+        assert_eq!(c.red(), 255);
+        assert_eq!(c.green(), 0);
+        assert_eq!(c.blue(), 0);
+        assert_eq!(c.alpha(), 255);
+
+        let c_short = parse_hex("#0f0").unwrap();
+        assert_eq!(c_short.red(), 0);
+        assert_eq!(c_short.green(), 255);
+        assert_eq!(c_short.blue(), 0);
+        assert_eq!(c_short.alpha(), 255);
+    }
+
+    #[test]
+    fn test_parse_hex_with_alpha() {
+        let c = parse_hex_with_alpha("#123456", 200).unwrap();
+        assert_eq!(c.red(), 0x12);
+        assert_eq!(c.green(), 0x34);
+        assert_eq!(c.blue(), 0x56);
+        assert_eq!(c.alpha(), 200);
+
+        let c_argb = parse_hex("#80123456").unwrap();
+        assert_eq!(c_argb.red(), 0x12);
+        assert_eq!(c_argb.green(), 0x34);
+        assert_eq!(c_argb.blue(), 0x56);
+        assert_eq!(c_argb.alpha(), 0x80);
+    }
+
+    #[test]
+    fn test_to_hex() {
+        let c = Color::from_argb_u8(255, 0x1a, 0x2b, 0x3c);
+        assert_eq!(to_hex(&c), "#1a2b3c");
+        assert_eq!(to_hex_argb(&c), "#ff1a2b3c");
+    }
+
+    #[test]
+    fn test_color_cache() {
+        let mut cache = ColorCache::new();
+        cache.register("primary", Color::from_argb_u8(255, 10, 20, 30));
+
+        let c1 = cache.get_or_parse("primary", 255);
+        assert_eq!(c1.red(), 10);
+        assert_eq!(c1.alpha(), 255);
+
+        let c1_alpha = cache.get_or_parse("primary", 128);
+        assert_eq!(c1_alpha.red(), 10);
+        assert_eq!(c1_alpha.alpha(), 128);
+
+        let transparent_c = cache.get_or_parse("Keine", 255);
+        assert_eq!(transparent_c.alpha(), 0);
+
+        let hex_c = cache.get_or_parse("#aabbcc", 200);
+        assert_eq!(hex_c.red(), 0xaa);
+        assert_eq!(hex_c.alpha(), 200);
+    }
+}
