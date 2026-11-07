@@ -4,6 +4,7 @@ members = [
     "crates/kit-paths",
     "crates/kit-picker",
     "crates/kit-slint",
+    "crates/kit-logging",
 ]
 
 [workspace.package]
