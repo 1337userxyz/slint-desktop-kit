@@ -1,0 +1,82 @@
+import { Button } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+
+export component KitCard inherits Rectangle {
+    background: AppTheme.bg-surface;
+    border-width: 1px;
+    border-color: AppTheme.border;
+    border-radius: AppTheme.radius-md;
+    @children
+}
+
+export component KitBadge inherits Rectangle {
+    in property <string> text;
+    // 0 = neutral, 1 = success, 2 = warning, 3 = danger, 4 = info
+    in property <int> kind: 0;
+
+    border-radius: AppTheme.radius-sm;
+    border-width: 1px;
+    background: kind == 1 ? AppTheme.success-bg
+        : kind == 2 ? AppTheme.warning-bg
+        : kind == 3 ? AppTheme.danger-bg
+        : kind == 4 ? AppTheme.info-bg
+        : AppTheme.bg-subtle;
+    border-color: kind == 1 ? AppTheme.success.with-alpha(0.35)
+        : kind == 2 ? AppTheme.warning.with-alpha(0.35)
+        : kind == 3 ? AppTheme.danger.with-alpha(0.35)
+        : kind == 4 ? AppTheme.info.with-alpha(0.35)
+        : AppTheme.border;
+
+    HorizontalLayout {
+        padding-left: AppTheme.spacing-sm;
+        padding-right: AppTheme.spacing-sm;
+        padding-top: 2px;
+        padding-bottom: 2px;
+        Text {
+            text: root.text;
+            font-size: AppTheme.font-size-sm;
+            font-weight: 600;
+            vertical-alignment: center;
+            color: kind == 1 ? AppTheme.success
+                : kind == 2 ? AppTheme.warning
+                : kind == 3 ? AppTheme.danger
+                : kind == 4 ? AppTheme.info
+                : AppTheme.text-secondary;
+        }
+    }
+}
+
+export component KitThemeSelector inherits HorizontalLayout {
+    in-out property <string> mode: AppTheme.mode;
+    callback changed(string);
+
+    spacing: AppTheme.spacing-sm;
+
+    Button {
+        text: "System";
+        primary: root.mode == "system";
+        clicked => {
+            root.mode = "system";
+            AppTheme.apply("system");
+            root.changed("system");
+        }
+    }
+    Button {
+        text: "Hell";
+        primary: root.mode == "light";
+        clicked => {
+            root.mode = "light";
+            AppTheme.apply("light");
+            root.changed("light");
+        }
+    }
+    Button {
+        text: "Dunkel";
+        primary: root.mode == "dark";
+        clicked => {
+            root.mode = "dark";
+            AppTheme.apply("dark");
+            root.changed("dark");
+        }
+    }
+}

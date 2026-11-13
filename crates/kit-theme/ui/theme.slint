@@ -1,0 +1,68 @@
+import { Palette } from "std-widgets.slint";
+
+export global AppTheme {
+    in-out property <string> mode: "system";
+    out property <bool> is-dark: Palette.color-scheme == ColorScheme.dark;
+
+    public function apply(m: string) {
+        if m == "dark" {
+            self.mode = "dark";
+            Palette.color-scheme = ColorScheme.dark;
+        } else if m == "light" {
+            self.mode = "light";
+            Palette.color-scheme = ColorScheme.light;
+        } else {
+            self.mode = "system";
+            Palette.color-scheme = ColorScheme.unknown;
+        }
+    }
+
+    // Hintergründe
+    out property <color> bg-canvas: is-dark ? #0f172a : #f8fafc;
+    out property <color> bg-surface: is-dark ? #1e293b : #ffffff;
+    out property <color> bg-elevated: is-dark ? #273449 : #ffffff;
+    out property <color> bg-subtle: is-dark ? #172033 : #f1f5f9;
+    out property <color> bg-hover: is-dark ? #334155 : #e2e8f0;
+    out property <color> bg-selected: is-dark ? #1e3a5f : #dbeafe;
+    out property <color> bg-scrim: is-dark ? #000000aa : #0f172a66;
+
+    // Rahmen & Trenner
+    out property <color> border: is-dark ? #334155 : #e2e8f0;
+    out property <color> border-strong: is-dark ? #475569 : #cbd5e1;
+
+    // Text
+    out property <color> text-primary: is-dark ? #e2e8f0 : #0f172a;
+    out property <color> text-secondary: is-dark ? #94a3b8 : #475569;
+    out property <color> text-muted: is-dark ? #64748b : #94a3b8;
+
+    // Akzent
+    out property <color> accent: is-dark ? #38bdf8 : #1d4ed8;
+    out property <color> accent-hover: is-dark ? #7dd3fc : #1e40af;
+    out property <color> accent-bg: is-dark ? #38bdf81f : #2a7fd412;
+    out property <color> accent-fg: is-dark ? #0f172a : #ffffff;
+
+    // Status
+    out property <color> success: is-dark ? #34d399 : #059669;
+    out property <color> success-bg: is-dark ? #05966926 : #d1fae5;
+    out property <color> warning: is-dark ? #fcd34d : #b45309;
+    out property <color> warning-bg: is-dark ? #451a03 : #fef3c7;
+    out property <color> danger: is-dark ? #f87171 : #dc2626;
+    out property <color> danger-bg: is-dark ? #7f1d1d55 : #fee2e2;
+    out property <color> info: is-dark ? #60a5fa : #2563eb;
+    out property <color> info-bg: is-dark ? #1e3a8a55 : #dbeafe;
+
+    // Layout-Konstanten
+    out property <length> radius-sm: 4px;
+    out property <length> radius-md: 6px;
+    out property <length> radius-lg: 10px;
+
+    out property <length> spacing-xs: 4px;
+    out property <length> spacing-sm: 8px;
+    out property <length> spacing-md: 12px;
+    out property <length> spacing-lg: 16px;
+
+    out property <length> font-size-sm: 11px;
+    out property <length> font-size-md: 13px;
+    out property <length> font-size-lg: 15px;
+    out property <length> font-size-xl: 18px;
+}

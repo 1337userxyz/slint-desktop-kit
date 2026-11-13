@@ -19,6 +19,46 @@ pub fn with_alpha(color: Color, alpha: u8) -> Color {
     Color::from_argb_u8(alpha, color.red(), color.green(), color.blue())
 }
 
+/// Berechnet die relative Luminanz (0.0 ..= 1.0) einer `slint::Color` gemäß WCAG 2.x.
+pub fn relative_luminance(c: Color) -> f32 {
+    fn linearize(channel: u8) -> f32 {
+        let v = channel as f32 / 255.0;
+        if v <= 0.03928 {
+            v / 12.92
+        } else {
+            ((v + 0.055) / 1.055).powf(2.4)
+        }
+    }
+    0.2126 * linearize(c.red()) + 0.7152 * linearize(c.green()) + 0.0722 * linearize(c.blue())
+}
+
+/// Wählt für eine gegebene Hintergrundfarbe die kontrastreichere Textfarbe:
+/// entweder dunkles Slate (`#0f172a`) oder reines Weiß (`#ffffff`).
+///
+/// Bei halbtransparentem oder transparentem Hintergrund (`alpha < 128`) wird
+/// `fallback` zurückgegeben, da der effektive Hintergrund vom darunterliegenden
+/// Theme bestimmt wird.
+pub fn contrast_text(bg: Color, fallback: Color) -> Color {
+    if bg.alpha() < 128 {
+        return fallback;
+    }
+    let dark = Color::from_rgb_u8(0x0f, 0x17, 0x2a);
+    let light = Color::from_rgb_u8(0xff, 0xff, 0xff);
+
+    let l_bg = relative_luminance(bg);
+    let l_dark = relative_luminance(dark);
+    let l_light = 1.0_f32;
+
+    let contrast_dark = (l_bg.max(l_dark) + 0.05) / (l_bg.min(l_dark) + 0.05);
+    let contrast_light = (l_light + 0.05) / (l_bg + 0.05);
+
+    if contrast_dark >= contrast_light {
+        dark
+    } else {
+        light
+    }
+}
+
 /// Formatiert eine `slint::Color` als 6-stelligen Hex-String `#RRGGBB`.
 pub fn to_hex(color: &Color) -> String {
     format!("#{:02x}{:02x}{:02x}", color.red(), color.green(), color.blue())
@@ -210,5 +250,46 @@ mod tests {
         let hex_c = cache.get_or_parse("#aabbcc", 200);
         assert_eq!(hex_c.red(), 0xaa);
         assert_eq!(hex_c.alpha(), 200);
+    }
+
+    #[test]
+    fn test_relative_luminance() {
+        let black = Color::from_rgb_u8(0, 0, 0);
+        let white = Color::from_rgb_u8(255, 255, 255);
+        assert!((relative_luminance(black) - 0.0).abs() < 1e-6);
+        assert!((relative_luminance(white) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_contrast_text() {
+        let dark_expected = Color::from_rgb_u8(0x0f, 0x17, 0x2a);
+        let light_expected = Color::from_rgb_u8(0xff, 0xff, 0xff);
+        let fallback = Color::from_rgb_u8(0x94, 0xa3, 0xb8);
+
+        // Weiß -> dunkel
+        assert_eq!(
+            contrast_text(Color::from_rgb_u8(255, 255, 255), fallback),
+            dark_expected
+        );
+        // Schwarz -> weiß
+        assert_eq!(
+            contrast_text(Color::from_rgb_u8(0, 0, 0), fallback),
+            light_expected
+        );
+        // Gelb #fde047 -> dunkel
+        assert_eq!(
+            contrast_text(parse_hex("#fde047").unwrap(), fallback),
+            dark_expected
+        );
+        // Dunkelblau #1e3a8a -> weiß
+        assert_eq!(
+            contrast_text(parse_hex("#1e3a8a").unwrap(), fallback),
+            light_expected
+        );
+        // Alpha < 128 -> fallback
+        assert_eq!(
+            contrast_text(Color::from_argb_u8(100, 255, 255, 255), fallback),
+            fallback
+        );
     }
 }
