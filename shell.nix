@@ -5,6 +5,7 @@ pkgs.mkShell {
     cargo
     rustc
     pkg-config
+    patchelf
     fontconfig
     wayland
     libxkbcommon
@@ -14,6 +15,7 @@ pkgs.mkShell {
     libxi
     libxrandr
     dbus
+    dbus.lib
   ];
 
   LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (with pkgs; [
@@ -27,4 +29,8 @@ pkgs.mkShell {
     fontconfig
     dbus.lib
   ]);
+
+  shellHook = ''
+    export RUSTFLAGS="-C link-arg=-Wl,-rpath,$LD_LIBRARY_PATH ''${RUSTFLAGS:-}"
+  '';
 }

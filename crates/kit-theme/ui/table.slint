@@ -1,0 +1,227 @@
+import { LineEdit, ScrollView } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+import { KitButton, KitCheckBox } from "components.slint";
+
+export component KitColSep inherits Rectangle {
+    width: 6px;
+    Rectangle {
+        x: (parent.width - 1px) / 2;
+        width: 1px;
+        height: parent.height;
+        background: AppTheme.border;
+    }
+}
+
+export component KitColResizer inherits Rectangle {
+    in-out property <length> target-width;
+    in property <length> col-min-w: 30px;
+    in property <length> col-max-w: 800px;
+    width: 6px;
+    clip: false;
+
+    Rectangle {
+        x: (parent.width - 1px) / 2;
+        width: 1px;
+        height: parent.height;
+        background: mta.has-hover || mta.pressed ? AppTheme.accent : AppTheme.border-strong;
+    }
+
+    mta := TouchArea {
+        width: 10px;
+        x: (parent.width - self.width) / 2;
+        mouse-cursor: ew-resize;
+
+        moved => {
+            if (self.pressed) {
+                target-width = Math.max(root.col-min-w, Math.min(root.col-max-w, target-width + (self.mouse-x - self.pressed-x)));
+            }
+        }
+    }
+}
+
+export struct KitFilterChoiceItem {
+    value: string,
+    display-text: string,
+    count: int,
+    selected: bool,
+    visible: bool,
+}
+
+export component KitColumnFilterModal inherits Rectangle {
+    in-out property <bool> open: false;
+    in property <string> column-name: "";
+    in property <int> column-index: 0;
+    in property <int> total-hits: 0;
+    in-out property <string> search-text: "";
+    in property <[KitFilterChoiceItem]> items: [];
+
+    callback search-changed(string);
+    callback select-all(bool);
+    callback toggle-item(int, bool);
+    callback reset-column(int);
+    callback apply-clicked(int);
+    callback closed();
+
+    visible: root.open;
+    background: AppTheme.bg-scrim;
+
+    if root.open: TouchArea {}
+
+    if root.open: Rectangle {
+        width: 430px;
+        height: 520px;
+        background: AppTheme.bg-surface;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: AppTheme.border-strong;
+
+        VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+
+            HorizontalLayout {
+                alignment: space-between;
+                Text {
+                    text: "Spaltenfilter: " + root.column-name;
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: AppTheme.text-primary;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                Rectangle {
+                    background: AppTheme.bg-selected;
+                    border-radius: 4px;
+                    height: 22px;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        Text {
+                            text: root.total-hits + " Treffer";
+                            color: AppTheme.accent;
+                            font-size: 11px;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            Text {
+                text: "Trefferanzahl berücksichtigt alle anderen aktiven Filter.";
+                color: AppTheme.text-muted;
+                font-size: 11px;
+            }
+
+            LineEdit {
+                placeholder-text: "Werte in dieser Spalte suchen...";
+                text: root.search-text;
+                edited(s) => {
+                    root.search-text = s;
+                    root.search-changed(s);
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 6px;
+                KitButton {
+                    label: "Alle";
+                    clicked => { root.select-all(true); }
+                }
+                KitButton {
+                    label: "Keine";
+                    clicked => { root.select-all(false); }
+                }
+                KitButton {
+                    label: "Zurücksetzen";
+                    clicked => {
+                        root.reset-column(root.column-index);
+                        root.open = false;
+                        root.closed();
+                    }
+                }
+            }
+
+            Rectangle {
+                vertical-stretch: 1;
+                background: AppTheme.bg-canvas;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: AppTheme.border;
+
+                ScrollView {
+                    VerticalLayout {
+                        padding: 6px;
+                        spacing: 2px;
+                        alignment: start;
+
+                        for item[idx] in root.items: VerticalLayout {
+                            if item.visible: Rectangle {
+                                height: 28px;
+                                border-radius: 4px;
+                                background: item.selected ? AppTheme.bg-subtle : transparent;
+
+                                HorizontalLayout {
+                                    padding-left: 6px;
+                                    padding-right: 8px;
+                                    spacing: 8px;
+                                    alignment: space-between;
+
+                                    KitCheckBox {
+                                        horizontal-stretch: 1;
+                                        text: item.display-text;
+                                        checked: item.selected;
+                                        toggled(val) => { root.toggle-item(idx, val); }
+                                    }
+
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Rectangle {
+                                            min-width: 30px;
+                                            height: 20px;
+                                            border-radius: 10px;
+                                            background: item.count > 0 ? AppTheme.bg-hover : AppTheme.bg-subtle;
+                                            HorizontalLayout {
+                                                padding-left: 6px;
+                                                padding-right: 6px;
+                                                Text {
+                                                    text: item.count;
+                                                    color: item.count > 0 ? AppTheme.accent : AppTheme.text-muted;
+                                                    font-size: 11px;
+                                                    font-weight: 600;
+                                                    horizontal-alignment: center;
+                                                    vertical-alignment: center;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: end;
+                KitButton {
+                    label: "Abbrechen";
+                    clicked => {
+                        root.open = false;
+                        root.closed();
+                    }
+                }
+                KitButton {
+                    label: "Filter anwenden";
+                    primary: true;
+                    clicked => {
+                        root.apply-clicked(root.column-index);
+                        root.open = false;
+                        root.closed();
+                    }
+                }
+            }
+        }
+    }
+}

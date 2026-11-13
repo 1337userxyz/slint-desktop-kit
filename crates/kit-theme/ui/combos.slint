@@ -1,0 +1,478 @@
+import { LineEdit, ListView, ScrollView } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+
+export struct KitComboItem {
+    value: string,
+    label: string,
+    badge: string,
+}
+
+export struct KitColorItem {
+    key: string,
+    hex_value: string,
+    color: color,
+}
+
+export component KitEditableCombo inherits Rectangle {
+    in-out property <string> text: "";
+    in property <string> placeholder-text: "";
+    in property <[string]> options: [];
+
+    // Schalter
+    in property <bool> clearable: false;
+    in property <bool> show-count: false;
+    in property <bool> read-only: false;
+    in property <bool> filterable: false;
+    in property <bool> enabled: true;
+    in property <length> popup-min-width: 180px;
+    in property <length> popup-max-height: 220px;
+
+    callback edited(string);
+    callback selected(string);
+    callback accepted(string);
+    callback cleared();
+
+    height: 30px;
+    background: transparent;
+
+    HorizontalLayout {
+        spacing: 2px;
+
+        LineEdit {
+            horizontal-stretch: 1;
+            placeholder-text: root.placeholder-text;
+            text <=> root.text;
+            read-only: root.read-only;
+            enabled: root.enabled;
+            edited(s) => {
+                root.text = s;
+                root.edited(s);
+            }
+            accepted(s) => {
+                root.accepted(s);
+            }
+        }
+
+        if root.clearable && root.text != "" && root.enabled && !root.read-only: Rectangle {
+            width: 24px;
+            border-radius: AppTheme.radius-sm;
+            border-width: 1px;
+            border-color: clr-ta.has-hover ? AppTheme.danger : AppTheme.border;
+            background: clr-ta.has-hover ? AppTheme.danger-bg : AppTheme.bg-surface;
+            Text {
+                text: "✕";
+                font-size: 10px;
+                font-weight: 700;
+                color: clr-ta.has-hover ? AppTheme.danger : AppTheme.text-secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            clr-ta := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    root.text = "";
+                    root.cleared();
+                    root.edited("");
+                }
+            }
+        }
+
+        Rectangle {
+            width: root.show-count ? 54px : 24px;
+            border-radius: AppTheme.radius-sm;
+            border-width: 1px;
+            border-color: !root.enabled ? AppTheme.border
+                : (dd-ta.has-hover ? AppTheme.accent : AppTheme.border);
+            background: !root.enabled ? AppTheme.bg-subtle
+                : (dd-ta.has-hover ? AppTheme.bg-hover : AppTheme.bg-surface);
+            Text {
+                text: root.show-count ? ("▼ (" + root.options.length + ")") : "▼";
+                font-size: root.show-count ? 11px : 10px;
+                font-weight: root.show-count ? 600 : 400;
+                color: !root.enabled ? AppTheme.text-muted
+                    : (root.show-count ? AppTheme.accent : AppTheme.text-secondary);
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            dd-ta := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: root.enabled ? pointer : default;
+                clicked => {
+                    if (root.options.length > 0) {
+                        popup.show();
+                    }
+                }
+            }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0px;
+        y: root.height + 2px;
+        width: Math.max(root.width, root.popup-min-width);
+        height: Math.min(root.popup-max-height, Math.max(root.options.length * 28px + 8px, 36px));
+
+        Rectangle {
+            background: AppTheme.bg-elevated;
+            border-radius: AppTheme.radius-sm;
+            border-width: 1px;
+            border-color: AppTheme.border-strong;
+
+            ListView {
+                x: 4px;
+                y: 4px;
+                width: parent.width - 8px;
+                height: parent.height - 8px;
+                for opt in root.options: Rectangle {
+                    height: 28px;
+                    border-radius: AppTheme.radius-sm;
+                    background: opt == root.text ? AppTheme.bg-selected : (ota.has-hover ? AppTheme.bg-hover : transparent);
+                    Text {
+                        x: 8px;
+                        width: parent.width - 16px;
+                        height: 100%;
+                        text: opt;
+                        font-size: AppTheme.font-size-sm;
+                        font-weight: opt == root.text ? 700 : 400;
+                        color: AppTheme.text-primary;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    ota := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.text = opt;
+                            root.selected(opt);
+                            root.edited(opt);
+                            popup.close();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component KitRichCombo inherits Rectangle {
+    in-out property <string> value: "";
+    in property <string> placeholder-text: "Wert eingeben oder auswählen...";
+    in property <[KitComboItem]> items: [];
+
+    // Schalter
+    in property <bool> clearable: false;
+    in property <bool> show-count: true;
+    in property <bool> read-only: false;
+    in property <bool> filterable: false;
+    in property <bool> enabled: true;
+    in property <length> popup-min-width: 220px;
+    in property <length> popup-max-height: 280px;
+
+    callback edited(string);
+    callback selected(string);
+    callback accepted(string);
+    callback cleared();
+
+    height: 32px;
+    background: transparent;
+
+    HorizontalLayout {
+        spacing: 4px;
+
+        LineEdit {
+            horizontal-stretch: 1;
+            text <=> root.value;
+            placeholder-text: root.placeholder-text;
+            read-only: root.read-only;
+            enabled: root.enabled;
+            edited(s) => {
+                root.value = s;
+                root.edited(s);
+            }
+            accepted(s) => {
+                root.accepted(s);
+            }
+        }
+
+        if root.clearable && root.value != "" && root.enabled && !root.read-only: Rectangle {
+            width: 26px;
+            height: 32px;
+            border-radius: AppTheme.radius-sm;
+            border-width: 1px;
+            border-color: clr-ta.has-hover ? AppTheme.danger : AppTheme.border;
+            background: clr-ta.has-hover ? AppTheme.danger-bg : AppTheme.bg-subtle;
+            Text {
+                text: "✕";
+                font-size: 11px;
+                font-weight: 700;
+                color: clr-ta.has-hover ? AppTheme.danger : AppTheme.text-secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            clr-ta := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    root.value = "";
+                    root.cleared();
+                    root.edited("");
+                }
+            }
+        }
+
+        Rectangle {
+            width: root.show-count ? 58px : 26px;
+            height: 32px;
+            background: !root.enabled ? AppTheme.bg-subtle
+                : (drop-ta.has-hover ? AppTheme.bg-hover : AppTheme.bg-subtle);
+            border-radius: AppTheme.radius-sm;
+            border-width: 1px;
+            border-color: !root.enabled ? AppTheme.border
+                : (drop-ta.has-hover ? AppTheme.accent : AppTheme.border-strong);
+
+            HorizontalLayout {
+                padding-left: 4px;
+                padding-right: 4px;
+                alignment: center;
+                Text {
+                    text: root.show-count ? ("▼ (" + root.items.length + ")") : "▼";
+                    font-size: root.show-count ? 11px : 10px;
+                    font-weight: 600;
+                    color: !root.enabled ? AppTheme.text-muted
+                        : (root.show-count ? AppTheme.accent : AppTheme.text-secondary);
+                    vertical-alignment: center;
+                }
+            }
+
+            drop-ta := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: root.enabled ? pointer : default;
+                clicked => { popup.show(); }
+            }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0px;
+        y: root.height + 2px;
+        width: Math.max(root.width, root.popup-min-width);
+        height: Math.min(Math.max(root.items.length * 30px + 12px, 60px), root.popup-max-height);
+
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: AppTheme.bg-elevated;
+            border-radius: AppTheme.radius-md;
+            border-width: 1px;
+            border-color: AppTheme.border-strong;
+
+            if root.items.length == 0: VerticalLayout {
+                alignment: center;
+                Text {
+                    text: "Keine Einträge gefunden";
+                    color: AppTheme.text-muted;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                }
+            }
+
+            if root.items.length > 0: ScrollView {
+                width: 100%;
+                height: 100%;
+
+                VerticalLayout {
+                    padding: 4px;
+                    spacing: 2px;
+
+                    for item in root.items: Rectangle {
+                        height: 28px;
+                        border-radius: AppTheme.radius-sm;
+                        background: item.value == root.value ? AppTheme.bg-selected : (item-ta.has-hover ? AppTheme.bg-hover : transparent);
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 8px;
+                            alignment: space-between;
+
+                            Text {
+                                text: item.label != "" ? item.label : item.value;
+                                color: item.value == "" ? AppTheme.text-muted : AppTheme.text-primary;
+                                font-size: 12px;
+                                font-weight: item.value == root.value ? 700 : 400;
+                                vertical-alignment: center;
+                                overflow: elide;
+                                horizontal-stretch: 1;
+                            }
+
+                            if item.badge != "": Rectangle {
+                                min-width: 44px;
+                                height: 20px;
+                                background: AppTheme.accent-bg;
+                                border-radius: 10px;
+                                border-width: 1px;
+                                border-color: AppTheme.accent.with-alpha(0.35);
+                                HorizontalLayout {
+                                    padding-left: 6px;
+                                    padding-right: 6px;
+                                    alignment: center;
+                                    Text {
+                                        text: item.badge;
+                                        color: AppTheme.accent;
+                                        font-size: 11px;
+                                        font-weight: 600;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+
+                        item-ta := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.value = item.value;
+                                root.selected(item.value);
+                                root.edited(item.value);
+                                popup.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component KitColorCombo inherits Rectangle {
+    in-out property <[KitColorItem]> choices: [];
+    in-out property <string> selected-key: "";
+    in-out property <color> selected-color: AppTheme.text-primary;
+    in property <bool> enabled: true;
+    callback selected(string, color);
+
+    min-height: 32px;
+    preferred-height: 32px;
+
+    Rectangle {
+        background: !root.enabled ? AppTheme.bg-subtle
+            : (btn-ta.has-hover ? AppTheme.bg-hover : AppTheme.bg-subtle);
+        border-radius: AppTheme.radius-sm;
+        border-width: 1px;
+        border-color: btn-ta.has-hover && root.enabled ? AppTheme.accent : AppTheme.border-strong;
+
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            spacing: 8px;
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 16px;
+                    height: 16px;
+                    background: root.selected-color;
+                    border-radius: 3px;
+                    border-width: 1px;
+                    border-color: AppTheme.border-strong;
+                }
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                text: root.selected-key != "" ? root.selected-key : "Farbe wählen...";
+                color: root.enabled ? AppTheme.text-primary : AppTheme.text-muted;
+                font-weight: 600;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            Text {
+                text: "▼";
+                font-size: 10px;
+                color: AppTheme.text-secondary;
+                vertical-alignment: center;
+            }
+        }
+
+        btn-ta := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: root.enabled ? pointer : default;
+            clicked => {
+                if (root.choices.length > 0) {
+                    popup.show();
+                }
+            }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0px;
+        y: root.height + 2px;
+        width: Math.max(root.width, 260px);
+        height: Math.min(Math.max(root.choices.length * 30px + 12px, 44px), 230px);
+
+        Rectangle {
+            background: AppTheme.bg-elevated;
+            border-radius: AppTheme.radius-md;
+            border-width: 1px;
+            border-color: AppTheme.border-strong;
+
+            ScrollView {
+                VerticalLayout {
+                    padding: 4px;
+                    spacing: 2px;
+
+                    for choice in root.choices: Rectangle {
+                        height: 28px;
+                        background: choice_touch.has-hover ? AppTheme.bg-hover
+                            : (choice.key == root.selected-key ? AppTheme.bg-selected : transparent);
+                        border-radius: AppTheme.radius-sm;
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 8px;
+
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 16px;
+                                    height: 16px;
+                                    background: choice.color;
+                                    border-radius: 3px;
+                                    border-width: 1px;
+                                    border-color: AppTheme.border-strong;
+                                }
+                            }
+
+                            Text {
+                                horizontal-stretch: 1;
+                                text: choice.key;
+                                color: AppTheme.text-primary;
+                                font-weight: 500;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+
+                            Text {
+                                text: choice.hex_value;
+                                font-size: 10px;
+                                font-family: "Consolas, Courier New, monospace";
+                                color: AppTheme.warning;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        choice_touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.selected-key = choice.key;
+                                root.selected-color = choice.color;
+                                root.selected(choice.key, choice.color);
+                                popup.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

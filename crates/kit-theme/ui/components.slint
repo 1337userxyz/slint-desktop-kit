@@ -80,3 +80,238 @@ export component KitThemeSelector inherits HorizontalLayout {
         }
     }
 }
+
+export component KitButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> primary: false;
+    in property <bool> danger: false;
+    in property <bool> subtle: false;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    height: 30px;
+    min-width: 72px;
+    border-radius: AppTheme.radius-sm;
+    border-width: root.subtle && !root.primary && !root.danger ? 0px : 1px;
+    border-color: !root.enabled ? AppTheme.border
+        : root.danger ? AppTheme.danger
+        : root.primary ? AppTheme.accent
+        : AppTheme.border-strong;
+    background: !root.enabled ? AppTheme.bg-subtle
+        : root.danger ? (ta.has-hover ? AppTheme.danger : AppTheme.danger-bg)
+        : root.primary ? (ta.has-hover ? AppTheme.accent-hover : AppTheme.accent)
+        : root.subtle ? (ta.has-hover ? AppTheme.bg-hover : transparent)
+        : (ta.has-hover ? AppTheme.bg-hover : AppTheme.bg-surface);
+
+    HorizontalLayout {
+        padding-left: AppTheme.spacing-md;
+        padding-right: AppTheme.spacing-md;
+        alignment: center;
+        Text {
+            text: root.label;
+            font-size: AppTheme.font-size-sm;
+            font-weight: 600;
+            vertical-alignment: center;
+            color: !root.enabled ? AppTheme.text-muted
+                : root.primary ? AppTheme.accent-fg
+                : root.danger ? (ta.has-hover ? AppTheme.accent-fg : AppTheme.danger)
+                : root.subtle ? (ta.has-hover ? AppTheme.text-primary : AppTheme.text-secondary)
+                : AppTheme.text-primary;
+        }
+    }
+
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component KitDeleteButton inherits Rectangle {
+    in property <string> label: "✕";
+    in property <bool> enabled: true;
+    callback clicked();
+
+    height: 28px;
+    min-width: root.label == "✕" ? 28px : 96px;
+    border-radius: AppTheme.radius-sm;
+    background: !root.enabled ? AppTheme.bg-subtle
+        : (touch.has-hover ? AppTheme.danger : AppTheme.danger-bg);
+    border-width: 1px;
+    border-color: !root.enabled ? AppTheme.border
+        : (touch.has-hover ? AppTheme.danger : AppTheme.danger.with-alpha(0.4));
+
+    HorizontalLayout {
+        padding-left: root.label == "✕" ? 6px : 10px;
+        padding-right: root.label == "✕" ? 6px : 10px;
+        alignment: center;
+        Text {
+            text: root.label;
+            color: !root.enabled ? AppTheme.text-muted
+                : (touch.has-hover ? AppTheme.accent-fg : AppTheme.danger);
+            font-size: 12px;
+            font-weight: root.label == "✕" ? 700 : 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component KitCheckBox inherits Rectangle {
+    in-out property <bool> checked: false;
+    in property <string> text: "";
+    in property <bool> enabled: true;
+    callback toggled(bool);
+
+    height: 28px;
+    background: transparent;
+
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                border-radius: AppTheme.radius-sm;
+                background: !root.enabled ? AppTheme.bg-subtle
+                    : root.checked ? AppTheme.accent
+                    : (ta.has-hover ? AppTheme.bg-hover : AppTheme.bg-subtle);
+                border-width: 1px;
+                border-color: !root.enabled ? AppTheme.border
+                    : root.checked ? AppTheme.accent
+                    : (ta.has-hover ? AppTheme.border-strong : AppTheme.border);
+
+                if root.checked: Text {
+                    text: "✓";
+                    color: root.enabled ? AppTheme.accent-fg : AppTheme.text-muted;
+                    font-size: 12px;
+                    font-weight: 800;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        if root.text != "": Text {
+            text: root.text;
+            color: root.enabled ? AppTheme.text-primary : AppTheme.text-muted;
+            font-size: 12px;
+            font-weight: 500;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+    }
+}
+
+export component KitFilterChip inherits Rectangle {
+    in property <string> label;
+    in property <bool> active: false;
+    callback clicked();
+
+    height: 28px;
+    border-radius: AppTheme.radius-sm;
+    border-width: 1px;
+    border-color: root.active ? AppTheme.accent : AppTheme.border;
+    background: root.active ? AppTheme.accent-bg : (ta.has-hover ? AppTheme.bg-hover : AppTheme.bg-surface);
+
+    HorizontalLayout {
+        padding-left: AppTheme.spacing-sm;
+        padding-right: AppTheme.spacing-sm;
+        alignment: center;
+        Text {
+            text: root.label;
+            font-size: AppTheme.font-size-sm;
+            font-weight: root.active ? 700 : 500;
+            vertical-alignment: center;
+            color: root.active ? AppTheme.accent : AppTheme.text-secondary;
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component KitNavTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> active: false;
+    in property <int> badge-count: 0;
+    callback clicked();
+
+    height: 34px;
+    border-radius: AppTheme.radius-sm;
+    background: root.active ? AppTheme.bg-selected : (ta.has-hover ? AppTheme.bg-hover : transparent);
+    border-width: root.active ? 1px : 0px;
+    border-color: AppTheme.accent;
+
+    HorizontalLayout {
+        padding-left: AppTheme.spacing-md;
+        padding-right: AppTheme.spacing-md;
+        spacing: AppTheme.spacing-xs;
+        alignment: center;
+
+        Text {
+            text: root.label;
+            font-size: AppTheme.font-size-md;
+            font-weight: root.active ? 700 : 500;
+            vertical-alignment: center;
+            color: root.active ? AppTheme.text-primary : AppTheme.text-secondary;
+        }
+
+        if root.badge-count > 0: KitBadge {
+            text: root.badge-count;
+            kind: 2;
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component KitHoverCard inherits Rectangle {
+    in property <int> row-index: 0;
+    in property <length> card-x: 0px;
+    in property <length> card-width: 360px;
+    in property <length> card-height: 100px;
+
+    x: root.card-x;
+    y: root.row-index < 5 ? 36px : -root.card-height - 4px;
+    width: root.card-width;
+    height: root.card-height;
+    z: 1000;
+    background: AppTheme.bg-surface;
+    border-width: 1.5px;
+    border-color: AppTheme.accent;
+    border-radius: AppTheme.radius-md;
+    drop-shadow-blur: 8px;
+    drop-shadow-color: AppTheme.bg-scrim;
+    drop-shadow-offset-y: 2px;
+    clip: true;
+
+    VerticalLayout {
+        padding: 8px;
+        spacing: 4px;
+        @children
+    }
+}

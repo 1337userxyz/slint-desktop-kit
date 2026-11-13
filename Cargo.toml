@@ -1,12 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/kit-paths",
-    "crates/kit-picker",
     "crates/kit-slint",
-    "crates/kit-logging",
-    "crates/kit-launcher",
-    "crates/kit-appdirs",
     "crates/kit-theme",
 ]
 
@@ -19,6 +14,5 @@ repository = "https://github.com/1337userxyz/slint-desktop-kit"
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
-rfd = "0.17"
 slint = "1.18"
-thiserror = "2.0"
+slint-build = "1.18"

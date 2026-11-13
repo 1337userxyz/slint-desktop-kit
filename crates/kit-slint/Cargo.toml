@@ -9,3 +9,4 @@ description = "Produktivitäts-Helfer für Slint: ModelRc Konverter, Iterator-Ex
 
 [dependencies]
 slint = { workspace = true }
+kit-dialog = { path = "../../../rust-kit/crates/kit-dialog" }

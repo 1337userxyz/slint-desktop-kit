@@ -5,11 +5,16 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Gemeinsames Slint-Theme-System (Hell/Dunkel/System) für slint-desktop-kit"
+description = "Gemeinsames Slint-Theme-System (Hell/Dunkel/System) und UI-Komponenten für slint-desktop-kit"
 
 [features]
 default = []
 serde = ["dep:serde"]
+build = ["dep:slint-build"]
 
 [dependencies]
 serde = { workspace = true, optional = true }
+slint-build = { workspace = true, optional = true }
+
+[dev-dependencies]
+slint-build = { workspace = true }

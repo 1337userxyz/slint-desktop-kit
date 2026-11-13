@@ -1,7 +1,7 @@
 //! Gemeinsames Theme-System (`kit-theme`) für Slint-Desktop-Anwendungen.
 //!
-//! Stellt den Pfad zur Slint-Bibliothek (`@kit-theme`) sowie das [`ThemeMode`]-Enum
-//! für die Konfiguration auf Rust-Seite bereit.
+//! Stellt den Pfad zur Slint-Bibliothek (`@kit-theme`), das [`ThemeMode`]-Enum
+//! sowie optional den standardisierten `build.rs`-Helper (`compile_slint`) bereit.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -25,6 +25,33 @@ pub fn library_paths() -> HashMap<String, PathBuf> {
     let mut map = HashMap::new();
     map.insert("kit-theme".to_string(), library_path());
     map
+}
+
+/// Standardisierter Slint-Build für alle Kit-Apps:
+/// - Registriert `@kit-theme`
+/// - Setzt `"fluent"` Style
+/// - Setzt `cargo:rerun-if-changed` für `entry_slint` und `@kit-theme`
+/// - Linkt unter Linux `dbus-1`
+#[cfg(feature = "build")]
+pub fn compile_slint(entry_slint: impl AsRef<std::path::Path>) {
+    let entry = entry_slint.as_ref();
+    println!("cargo:rerun-if-changed={}", entry.display());
+    if let Some(ui_dir) = library_path().parent() {
+        println!("cargo:rerun-if-changed={}", ui_dir.display());
+    }
+
+    let is_linux = std::env::var("CARGO_CFG_TARGET_OS")
+        .map(|v| v == "linux")
+        .unwrap_or(cfg!(target_os = "linux"));
+    if is_linux {
+        println!("cargo:rustc-link-lib=dbus-1");
+    }
+
+    let config = slint_build::CompilerConfiguration::new()
+        .with_library_paths(library_paths())
+        .with_style("fluent".into());
+    slint_build::compile_with_config(entry, config)
+        .expect("Slint compilation failed");
 }
 
 /// Unterstützte Theme-Modi.
@@ -104,5 +131,83 @@ mod tests {
         assert!(p.exists());
         let map = library_paths();
         assert_eq!(map.get("kit-theme"), Some(&p));
+    }
+
+    #[test]
+    fn test_slint_components_compile() {
+        let tmp_dir = std::env::temp_dir().join(format!("kit-theme-compile-test-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&tmp_dir);
+        let test_slint = tmp_dir.join("test_all.slint");
+        std::fs::write(
+            &test_slint,
+            r##"
+import {
+    AppTheme,
+    KitCard,
+    KitBadge,
+    KitThemeSelector,
+    KitButton,
+    KitDeleteButton,
+    KitCheckBox,
+    KitFilterChip,
+    KitNavTab,
+    KitHoverCard,
+    KitComboItem,
+    KitColorItem,
+    KitEditableCombo,
+    KitRichCombo,
+    KitColorCombo,
+    KitColSep,
+    KitColResizer,
+    KitFilterChoiceItem,
+    KitColumnFilterModal
+} from "@kit-theme";
+
+export component TestAll inherits Window {
+    width: 800px;
+    height: 600px;
+    background: AppTheme.bg-canvas;
+
+    property <[KitComboItem]> rich-items: [{ value: "a", label: "A", badge: "1×" }];
+    property <[KitColorItem]> color-items: [{ key: "Blue", hex_value: "#1d4ed8", color: #1d4ed8 }];
+    property <[KitFilterChoiceItem]> filter-items: [{ value: "x", display-text: "X", count: 3, selected: true, visible: true }];
+    property <length> col-w: 120px;
+
+    VerticalLayout {
+        KitThemeSelector {}
+        KitCard {
+            KitBadge { text: "OK"; kind: 1; }
+        }
+        KitButton { label: "Save"; primary: true; }
+        KitDeleteButton {}
+        KitDeleteButton { label: "✕ Entfernen"; }
+        KitCheckBox { text: "Aktiv"; }
+        KitFilterChip { label: "Alle"; active: true; }
+        KitNavTab { label: "Übersicht"; active: true; badge-count: 2; }
+        KitEditableCombo { options: ["One", "Two"]; clearable: true; show-count: true; }
+        KitRichCombo { items: root.rich-items; clearable: true; show-count: true; }
+        KitColorCombo { choices: root.color-items; }
+        HorizontalLayout {
+            KitColSep {}
+            KitColResizer { target-width <=> root.col-w; }
+        }
+    }
+    KitHoverCard { Text { text: "Hover"; } }
+    KitColumnFilterModal { items: root.filter-items; }
+}
+"##,
+        )
+        .unwrap();
+
+        let out_dir = tmp_dir.join("out");
+        let _ = std::fs::create_dir_all(&out_dir);
+        std::env::set_var("OUT_DIR", &out_dir);
+
+        let config = slint_build::CompilerConfiguration::new()
+            .with_library_paths(library_paths())
+            .with_style("fluent".into());
+        let res = slint_build::compile_with_config(&test_slint, config);
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+        res.expect("All @kit-theme Slint exports must compile cleanly");
     }
 }
